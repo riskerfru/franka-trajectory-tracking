@@ -1,0 +1,6 @@
+__pycache__/ 
+logs/ 
+*.pyc 
+franka_env.py 
+evaluate_franka.py 
+design_note_tracking.md 
