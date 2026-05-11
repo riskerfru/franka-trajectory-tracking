@@ -10,7 +10,7 @@ under multiple sources of uncertainty.
 |-------------|------------|-----------|-----------|
 | Circle       | 8.7cm      | 30.4cm    | 9%        |
 | Figure-Eight | 4.7cm      | 20.7cm    | 46%       |
-| Moving Target | training  | —         | —         |
+| Moving Target | 9.5cm     | 20.9cm    | 6%        |
 
 Trained with 500,000 PPO steps per trajectory on NVIDIA RTX 2050.
 
