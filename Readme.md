@@ -9,8 +9,8 @@ A reinforcement learning system that trains a Franka Panda 7-DOF robot arm to tr
 | Trajectory | Mean Error | Min Error | Steps |
 |-----------|-----------|----------|-------|
 | Figure-8  | 5.5cm     | 1.2cm    | 1M    |
-| Circle    | 1.5cm     | 0.1       | 1M    |
-| Random    | —         | —        | 1M    |
+| Circle    | 1.5cm     | 0.1cm    | 1M    |
+| Random    | 7.5cm     | 2.0cm    | 1M    |
 
 ![Figure-8 Tracking](results/tracking_figure8.png)
 
