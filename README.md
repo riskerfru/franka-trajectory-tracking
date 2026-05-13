@@ -6,11 +6,11 @@ under multiple sources of uncertainty.
 
 ## Results
 
-| Trajectory   | Mean Error | Max Error | Under 5cm |
-|-------------|------------|-----------|-----------|
-| Circle       | 8.7cm      | 30.4cm    | 9%        |
-| Figure-Eight | 4.7cm      | 20.7cm    | 46%       |
-| Moving Target | 9.5cm     | 20.9cm    | 6%        |
+| Trajectory | Mean Error | Min Error | Steps |
+|-----------|-----------|----------|-------|
+| Circle    | 1.5cm     | 0.1cm    | 1M    |
+| Figure-8  | 5.5cm     | 1.2cm    | 1M    |
+| Random    | 7.5cm     | 2.0cm    | 1M    |
 
 Trained with 500,000 PPO steps per trajectory on NVIDIA RTX 2050.
 
