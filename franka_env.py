@@ -66,12 +66,22 @@ def linear_trajectory(t, start=(0.4, -0.2, 0.4), end=(0.4, 0.2, 0.4), period=4.0
     vel = speed * (np.array(end) - np.array(start))
     return pos, vel
 
+def random_waypoint_trajectory(t, centre=(0.5, 0.0, 0.4), r=0.10, speed=0.3):
+    x = centre[0] + r * np.sin(speed * t) * np.cos(0.7 * t)
+    y = centre[1] + r * np.cos(speed * t) * np.sin(1.1 * t)
+    z = centre[2] + 0.05 * np.sin(1.3 * t)
+    vx = r * (speed * np.cos(speed*t) * np.cos(0.7*t) - 0.7 * np.sin(speed*t) * np.sin(0.7*t))
+    vy = r * (-speed * np.sin(speed*t) * np.sin(1.1*t) + 1.1 * np.cos(speed*t) * np.cos(1.1*t))
+    vz = 0.05 * 1.3 * np.cos(1.3 * t)
+    return np.array([x, y, z]), np.array([vx, vy, vz])
 
 TRAJECTORIES = {
     "circle":   circle_trajectory,
     "figure8":  figure8_trajectory,
     "linear":   linear_trajectory,
+    "random":   random_waypoint_trajectory,
 }
+
 
 
 # ── Environment ──────────────────────────────────────────────
