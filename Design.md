@@ -107,11 +107,11 @@ Total steps:   1,000,000 per trajectory
 
 ## Evaluation and Results
 
-| Trajectory | Mean Error | Min Error | Max Error | Notes |
-|-----------|-----------|----------|----------|-------|
-| Circle    | 1.5cm     | 0.1cm    | 41.2cm   | Max at episode start, settles quickly |
-| Figure-8  | 5.5cm     | 1.2cm    | 38.1cm   | Direction reversals are harder |
-| Random    | 7.5cm     | 2.0cm    | 37.2cm   | 3D variation, hardest trajectory |
+| Trajectory | Mean Error | Min Error | Jerk (smoothness) |
+|-----------|-----------|----------|------------------|
+| Circle    | 1.9cm     | 0.1cm    | 2.87             |
+| Figure-8  | 1.8cm     | 0.1cm    | 1.35             |
+| Random    | 4.8cm     | 0.2cm    | 1.43             |
 
 **Why is circle best?** The circle has constant curvature and constant speed — the agent sees consistent dynamics every step. Figure-8 has direction reversals (velocity changes sign) which require the agent to decelerate and accelerate. Random has varying curvature and 3D motion.
 
