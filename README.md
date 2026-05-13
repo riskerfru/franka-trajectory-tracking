@@ -1,131 +1,140 @@
 # Franka Trajectory Tracking — RL End-Effector Control
 
-Reinforcement learning system that trains a robotic arm to track
-time-varying Cartesian trajectories with smooth, stable motion
-under multiple sources of uncertainty.
+Reinforcement learning system that trains a Franka Panda 7-DOF robot arm to track moving Cartesian trajectories using PPO (Proximal Policy Optimisation) in MuJoCo.
+
+---
 
 ## Results
 
-| Trajectory | Mean Error | Min Error | Steps |
-|-----------|-----------|----------|-------|
-| Circle    | 1.5cm     | 0.1cm    | 1M    |
-| Figure-8  | 5.5cm     | 1.2cm    | 1M    |
-| Random    | 7.5cm     | 2.0cm    | 1M    |
+| Trajectory | Mean Error | Min Error | Jerk (smoothness) |
+|-----------|-----------|----------|--------------------|
+| Circle    | 1.9cm     | 0.1cm    | 2.87               |
+| Figure-8  | 1.8cm     | 0.1cm    | 1.35               |
+| Random    | 4.8cm     | 0.2cm    | 1.43               |
 
-Trained with 500,000 PPO steps per trajectory on NVIDIA RTX 2050.
+Trained with 1M PPO steps per trajectory on CPU (GitHub Codespaces).
 
-## Demo
+---
 
-Watch the arm track a figure-eight trajectory:
+## Tracking Plots
 
-![Figure-Eight Tracking](results/figure_eight_results.png)
-![Circle Tracking](results/circle_results.png)
+### Circle
+![Circle Tracking](results/tracking_circle.png)
 
-## Requirements
+### Figure-8
+![Figure-8 Tracking](results/tracking_figure8.png)
 
-```bash
-pip install mujoco gymnasium stable-baselines3 torch numpy matplotlib
+### Random (Lissajous)
+![Random Tracking](results/tracking_random.png)
+
+---
+
+## What It Does
+
+The agent controls all 7 joint velocities of a Franka Panda arm to keep the end effector as close as possible to a moving target point in 3D space.
+
+```
+Observation (19,):
+  ee_pos     (3)  end effector position with 3mm Gaussian noise
+  ee_vel     (3)  end effector velocity
+  target_pos (3)  current target position on trajectory
+  target_vel (3)  current target velocity (analytical derivative)
+  joints     (7)  all 7 joint angles
+
+Action (7,):
+  joint velocity targets scaled to [-1, 1] then to +/-2 rad/s
+
+Reward:
+  exp(-10 x dist)        dense exponential peaks at 1.0 when perfect
+  + 1.0 if dist < 2cm   precision bonus
+  - 0.01 x ||action||2  control cost for smooth motion
 ```
 
-## How To Run
+---
+
+## Trajectories
+
+**Circle** - constant radius in horizontal plane
+
+**Figure-8** - Lissajous curve with direction reversals (harder)
+
+**Random** - compound Lissajous with 3D height variation (hardest)
+
+---
+
+## Installation
+
+```bash
+git clone https://github.com/riskerfru/franka-trajectory-tracking
+cd franka-trajectory-tracking
+pip install mujoco stable-baselines3 gymnasium numpy matplotlib tensorboard tqdm rich
+```
+
+---
+
+## Usage
+
+### Test environment
+```bash
+python franka_env.py
+```
 
 ### Train
 ```bash
-# Train circle trajectory
-python train.py --traj circle --steps 500000 --envs 4
-
-# Train figure-eight
-python train.py --traj figure_eight --steps 500000 --envs 4
-
-# Train moving target
-python train.py --traj moving --steps 500000 --envs 4
-
-# Train all three sequentially
-python train.py --traj all --steps 500000 --envs 4
+python train.py --traj circle --steps 1000000 --envs 4
+python train.py --traj figure8 --steps 1000000 --envs 4
+python train.py --traj random --steps 1000000 --envs 4
 ```
 
-### Visualise and Evaluate
+### Visualise
 ```bash
-# Watch arm track with plots
-python visualise.py --traj circle
-python visualise.py --traj figure_eight
-python visualise.py --traj moving
-
-# Plots only, no viewer
-python visualise.py --traj circle --no-render
+python visualise.py --traj circle --model models/ppo_circle_final
+python visualise.py --traj figure8 --model models/ppo_figure8_final
+python visualise.py --traj random --model models/ppo_random_final
 ```
 
-## System Design
-
-### Environment
-MuJoCo Reacher-v5 (2-joint planar arm) with:
-- Custom 12-dimensional observation space
-- Custom reward function combining three terms
-- Three uncertainty sources
-
-### State Space (12 numbers)
-```
-[0:3]  End effector position    [x, y, z]
-[3:6]  End effector velocity    [vx, vy, vz]
-[6:9]  Target position          [x, y, z]
-[9:12] Target velocity          [vx, vy, vz]
+### Plot tracking performance
+```bash
+python plot_tracking.py --traj circle --model models/ppo_circle_final
+python plot_tracking.py --traj figure8 --model models/ppo_figure8_final
+python plot_tracking.py --traj random --model models/ppo_random_final
 ```
 
-Target velocity is included so the agent can predict where
-the target will be next step rather than always chasing it.
-
-### Action Space
-2 joint velocity commands, normalised to [-1, +1].
-Velocity control chosen over position control for smooth
-continuous motion without sudden jumps.
-
-### Reward Function
-Three complementary terms:
-
-```python
-reward = exp(-10 * d)      # exponential: strong pull to target
-       - 0.5 * d²          # quadratic: penalise large errors
-       - 0.3 * d           # linear: consistent gradient
-       - 0.1 * jerk²       # smoothness: penalise sudden moves
-       - 0.5 * unreachable # penalty when target out of workspace
+### Monitor training
+```bash
+tensorboard --logdir models/logs
 ```
 
-### Uncertainty Sources
+---
 
-**1. Observation Noise (5mm std)**
-Gaussian noise added to position and velocity observations.
-Simulates real sensor imprecision from depth cameras or encoders.
+## Design Note
 
-**2. Control Delay (2 steps)**
-Actions are buffered and executed 2 steps later.
-Simulates real robot communication and actuator response delay.
+See [Design.md](Design.md) for full explanation of state, action, reward design, trajectory representation, uncertainty sources, training setup, and evaluation methodology.
 
-**3. Unreachable Positions**
-Moving target trajectory occasionally drifts beyond workspace.
-Agent receives penalty and learns to hold nearest reachable position.
-
-### Trajectory Representation
-Each trajectory provides `get_position(t)` and `get_velocity(t)`
-at any time t. The velocity is the analytical derivative of position,
-giving the agent exact target motion information for prediction.
-
-```python
-# Circle example
-x = centre_x + radius * cos(speed * t)
-vx = -radius * speed * sin(speed * t)  # derivative
-```
+---
 
 ## Project Structure
+
 ```
 franka-trajectory-tracking/
-├── trajectories.py    # Circle, Figure-8, Moving target
-├── tracking_env.py    # Custom MuJoCo environment
-├── train.py           # PPO training script
-├── visualise.py       # Evaluation and plotting
-├── design_note.md     # Design decisions explained
-└── results/           # Generated plots
+├── franka_env.py        <- Gymnasium environment
+├── train.py             <- PPO training
+├── visualise.py         <- Evaluation episodes
+├── plot_tracking.py     <- 6-panel plots with jerk metric
+├── Design.md            <- Design note
+├── models/
+│   ├── best_model.zip
+│   ├── ppo_circle_final.zip
+│   ├── ppo_figure8_final.zip
+│   └── ppo_random_final.zip
+└── results/
+    ├── tracking_circle.png
+    ├── tracking_figure8.png
+    └── tracking_random.png
 ```
 
+---
+
 ## Author
-Prajjwalit Singh
-MSc Advanced Manufacturing Systems, Brunel University London
+
+Prajjwalit Singh - MSc Advanced Manufacturing Systems, Brunel University London
