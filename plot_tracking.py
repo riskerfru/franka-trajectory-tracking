@@ -29,12 +29,12 @@ def run_episode(model, traj_name, deterministic=True):
     errors           = []
     times            = []
 
+    actions = []
     done = False
     while not done:
         action, _ = model.predict(obs, deterministic=deterministic)
         obs, reward, terminated, truncated, info = env.step(action)
 
-        # Extract from obs
         ee_pos     = obs[:3].copy()
         target_pos = obs[6:9].copy()
 
@@ -42,16 +42,23 @@ def run_episode(model, traj_name, deterministic=True):
         target_positions.append(target_pos)
         errors.append(info["distance"])
         times.append(info["time"])
+        actions.append(action.copy())
 
         done = terminated or truncated
 
     env.close()
+
+    # Compute jerk (rate of change of acceleration = smoothness metric)
+    actions_arr = np.array(actions)
+    jerk = np.diff(actions_arr, n=2, axis=0)
+    jerk_magnitude = np.linalg.norm(jerk, axis=1)
 
     return (
         np.array(ee_positions),
         np.array(target_positions),
         np.array(errors),
         np.array(times),
+        jerk_magnitude,
     )
 
 
@@ -75,13 +82,14 @@ def plot(traj_name, model_path=None):
     print(f"Loading: {model_path}")
     model = PPO.load(model_path)
 
-    ee, target, errors, times = run_episode(model, traj_name)
+    ee, target, errors, times, jerk = run_episode(model, traj_name)
 
-    print(f"  Steps:       {len(errors)}")
-    print(f"  Mean error:  {np.mean(errors)*100:.1f}cm")
-    print(f"  Min error:   {np.min(errors)*100:.1f}cm")
-    print(f"  Max error:   {np.max(errors)*100:.1f}cm")
-    print(f"  Final error: {errors[-1]*100:.1f}cm")
+    print(f"  Steps:        {len(errors)}")
+    print(f"  Mean error:   {np.mean(errors)*100:.1f}cm")
+    print(f"  Min error:    {np.min(errors)*100:.1f}cm")
+    print(f"  Max error:    {np.max(errors)*100:.1f}cm")
+    print(f"  Final error:  {errors[-1]*100:.1f}cm")
+    print(f"  Mean jerk:    {np.mean(jerk):.4f}  (lower = smoother)")
 
     fig = plt.figure(figsize=(16, 10))
     fig.suptitle(f"Franka Trajectory Tracking — {traj_name.capitalize()}",
@@ -144,15 +152,16 @@ def plot(traj_name, model_path=None):
     ax5.legend(fontsize=8)
     ax5.grid(True, alpha=0.3)
 
-    # ── Plot 6: Error histogram ──
+    # ── Plot 6: Jerk (smoothness) ──
     ax6 = fig.add_subplot(2, 3, 6)
-    ax6.hist(errors * 100, bins=30, color="steelblue", edgecolor="white", alpha=0.8)
-    ax6.axvline(x=np.mean(errors) * 100, color="orange", linestyle="--",
-                label=f"Mean: {np.mean(errors)*100:.1f}cm")
-    ax6.axvline(x=2.0, color="green", linestyle=":", label="2cm target")
-    ax6.set_xlabel("Error (cm)")
-    ax6.set_ylabel("Frequency")
-    ax6.set_title("Error Distribution")
+    jerk_times = times[2:]  # jerk has 2 fewer points
+    ax6.plot(jerk_times, jerk, color="darkgreen", linewidth=1.0, alpha=0.8)
+    ax6.axhline(y=np.mean(jerk), color="orange", linestyle="--",
+                label=f"Mean jerk: {np.mean(jerk):.3f}")
+    ax6.fill_between(jerk_times, jerk, alpha=0.2, color="darkgreen")
+    ax6.set_xlabel("Time (s)")
+    ax6.set_ylabel("Jerk magnitude")
+    ax6.set_title("Motion Smoothness (Jerk)")
     ax6.legend(fontsize=8)
     ax6.grid(True, alpha=0.3)
 
